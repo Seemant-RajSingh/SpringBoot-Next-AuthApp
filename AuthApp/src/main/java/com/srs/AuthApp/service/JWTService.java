@@ -33,11 +33,10 @@ public class JWTService {
         }
     }
 
-    // Generate JWT token
-    public String generateToken(String username) {
-        System.out.println("in generate token, username param: " + username);
+    public String generateToken(String email) {
+        System.out.println("in generate token, username param: " + email);
         return Jwts.builder()
-                .setSubject(username)
+                .setSubject(email)
                 .setIssuedAt(new Date())
                 .setExpiration(new Date(System.currentTimeMillis() + 3600000))
                 .signWith(getSigninKey())

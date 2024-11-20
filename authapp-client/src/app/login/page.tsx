@@ -3,12 +3,12 @@
 import Link from "next/link";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import Cookies from "js-cookie"; 
+import Cookies from "js-cookie";
 
 export default function Login() {
   const router = useRouter();
 
-  const [username, setUsername] = useState("");
+  const [email, setEmail] = useState(""); 
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
 
@@ -21,7 +21,7 @@ export default function Login() {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ username, password }),
+        body: JSON.stringify({ email, password }), 
       });
 
       if (!response.ok) {
@@ -31,11 +31,11 @@ export default function Login() {
       }
 
       const tokenWithBearer = await response.text();
-      const token = tokenWithBearer.replace("Bearer ", ""); // Remove "Bearer " prefix
-      console.log("token is: ", tokenWithBearer, " ", token)
+      const token = tokenWithBearer.replace("Bearer ", ""); 
+      console.log("token is: ", tokenWithBearer, " ", token);
 
       if (token) {
-        Cookies.set("authToken", token, { expires: 1, secure: true }); // Secure = true for HTTPS
+        Cookies.set("authToken", token, { expires: 1, secure: true }); 
 
         router.push("/");
       }
@@ -57,12 +57,12 @@ export default function Login() {
 
         <form onSubmit={handleSubmit}>
           <div className="mb-4">
-            <label className="block text-sm font-medium text-gray-300">Username</label>
+            <label className="block text-sm font-medium text-gray-300">Email</label> 
             <input
-              type="text"
-              placeholder="Enter your username"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
+              type="email" 
+              placeholder="Enter your email"
+              value={email} 
+              onChange={(e) => setEmail(e.target.value)}
               className="w-full p-3 mt-1 bg-zinc-700 border border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-yellow-500 text-gray-100"
             />
           </div>

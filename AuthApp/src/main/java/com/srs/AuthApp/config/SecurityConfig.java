@@ -36,9 +36,8 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         return http
-                .cors()
-                .and()
-                .csrf(customizer -> customizer.disable()) // Disable CSRF for stateless API
+                .csrf(customizer -> customizer.disable())
+                .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .authorizeHttpRequests(request -> request
                         .requestMatchers("/register/**", "/login/**").permitAll()
                         .requestMatchers("/admin/**").hasAuthority("ADMIN")

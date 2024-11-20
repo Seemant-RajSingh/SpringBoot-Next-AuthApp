@@ -9,12 +9,15 @@ import com.srs.AuthApp.service.UserService;
 import com.srs.AuthApp.service.MyUserDetailsService;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -44,9 +47,12 @@ public class UserController {
             userService.registerUser(user);
             return ResponseEntity.ok("User registered successfully!");
         } catch (IllegalArgumentException e) {
-            return ResponseEntity.badRequest().body(e.getMessage());
+            return ResponseEntity.badRequest().body("Invalid user data: " + e.getMessage());
+        } catch (DataIntegrityViolationException e) {
+            return ResponseEntity.status(HttpStatus.CONFLICT).body("User already exists: " + e.getMessage());
         } catch (Exception e) {
-            return ResponseEntity.status(500).body("An error occurred: " + e.getMessage());
+            System.out.println(e.getMessage()); // prefer this
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("An unexpected error occurred: " + e.getMessage());
         }
     }
 
@@ -54,55 +60,57 @@ public class UserController {
     public ResponseEntity<String> login(@RequestBody User user) {
         try {
             System.out.println("in login");
-            System.out.println("User: " + user.getUsername() + user.getPassword());
+            System.out.println("User: " + user.getEmail() + " " + user.getPassword());
+
             Authentication authentication = authenticationManager.authenticate(
-                    new UsernamePasswordAuthenticationToken(user.getUsername(), user.getPassword())
+                    new UsernamePasswordAuthenticationToken(user.getEmail(), user.getPassword())
             );
             System.out.println("Auth complete");
 
-            UserDetails userDetails = myUserDetailsService.loadUserByUsername(user.getUsername());
+            UserDetails userDetails = myUserDetailsService.loadUserByUsername(user.getEmail());
             System.out.println("collected userDetails: " + userDetails + " " + userDetails.getUsername());
+
             String jwtToken = jwtService.generateToken(userDetails.getUsername());
             System.out.println("token created: " + jwtToken);
 
             return ResponseEntity.ok("Bearer " + jwtToken);
         } catch (Exception e) {
+            System.out.println(e.getMessage());
             return ResponseEntity.status(401).body("Invalid credentials or other authentication error.");
         }
     }
 
-    @GetMapping("/users")
-    public ResponseEntity<?> getUsers(HttpServletRequest request) {
+
+    @GetMapping("/user")
+    public ResponseEntity<?> getUser(HttpServletRequest request) {
         try {
-            System.out.println("in /users");
+            System.out.println("Accessing /user endpoint");
 
             UserDetails userDetails = (UserDetails) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
-            String username = userDetails.getUsername();
+            String email = userDetails.getUsername();
 
-            User authenticatedUser = userRepository.findByUsername(username)
-                    .orElseThrow(() -> new RuntimeException("Authenticated user not found"));
+            User authenticatedUser = userRepository.findByEmail(email)
+                    .orElseThrow(() -> new RuntimeException("User not found"));
 
-            System.out.println("Authenticated user role: " + authenticatedUser.getRole());
+            if (authenticatedUser.getRole() == Role.USER || authenticatedUser.getRole() == Role.GUEST || authenticatedUser.getRole() == Role.ADMIN) {
+                UserDTO userDTO = new UserDTO(
+                        authenticatedUser.getUsername(),
+                        authenticatedUser.getEmail(),
+                        authenticatedUser.getPassword(),
+                        authenticatedUser.getRole()
+                );
 
-            if (authenticatedUser.getRole() == Role.ADMIN) {
-                List<UserDTO> allUsers = userRepository.findAll().stream()
-                        .map(user -> new UserDTO(user.getUsername(), user.getEmail(), user.getPassword(), user.getRole()))
-                        .toList();
-
-                UserDTO adminDTO = new UserDTO(authenticatedUser.getUsername(), authenticatedUser.getEmail(), authenticatedUser.getPassword(), authenticatedUser.getRole());
-
-                System.out.println("Admin and all users fetched: " + allUsers);
-
-                return ResponseEntity.ok(List.of(adminDTO, allUsers));
+                System.out.println("User fetched: " + userDTO);
+                return ResponseEntity.ok(userDTO);
             } else {
-                UserDTO userDTO = new UserDTO(authenticatedUser.getUsername(), authenticatedUser.getEmail(), authenticatedUser.getPassword(), authenticatedUser.getRole());
-
-                System.out.println("Single user fetched: " + userDTO);
-                return ResponseEntity.ok(List.of(userDTO));
+                System.out.println("Access forbidden for role: " + authenticatedUser.getRole());
+                return ResponseEntity.status(403).body("Access denied for this role");
             }
         } catch (Exception e) {
+            System.out.println(e.getMessage());
             return ResponseEntity.status(500).body("An error occurred: " + e.getMessage());
         }
     }
+
 
 }
